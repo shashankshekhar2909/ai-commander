@@ -1,6 +1,7 @@
 import os
 import json
 import glob
+import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -16,6 +17,51 @@ def estimate_cost(input_tokens: int, output_tokens: int) -> float:
     input_cost = (input_tokens / 1_000_000) * 3.0
     output_cost = (output_tokens / 1_000_000) * 15.0
     return round(input_cost + output_cost, 4)
+
+def get_storage_diagnostics() -> Dict[str, Any]:
+    total_bytes = 0
+    file_count = 0
+    session_count = 0
+    
+    if os.path.exists(GEMINI_BRAIN_DIR):
+        for root, dirs, files in os.walk(GEMINI_BRAIN_DIR):
+            file_count += len(files)
+            for f in files:
+                fp = os.path.join(root, f)
+                try:
+                    total_bytes += os.path.getsize(fp)
+                except Exception:
+                    pass
+        session_count = len([d for d in os.listdir(GEMINI_BRAIN_DIR) if os.path.isdir(os.path.join(GEMINI_BRAIN_DIR, d))])
+        
+    mb_used = round(total_bytes / (1024 * 1024), 2)
+    return {
+        "brain_dir": GEMINI_BRAIN_DIR,
+        "total_sessions": session_count,
+        "total_files": file_count,
+        "total_megabytes": mb_used,
+        "total_gigabytes": round(mb_used / 1024, 3)
+    }
+
+def get_ollama_models() -> List[Dict[str, Any]]:
+    models = []
+    try:
+        res = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=3)
+        if res.returncode == 0 and res.stdout:
+            lines = res.stdout.strip().split("\n")
+            for line in lines[1:]:
+                parts = line.split()
+                if len(parts) >= 3:
+                    name = parts[0]
+                    size = parts[2] + " " + (parts[3] if len(parts) > 3 and not parts[3].startswith("20") else "")
+                    models.append({
+                        "name": name,
+                        "size": size,
+                        "status": "Available Locally"
+                    })
+    except Exception:
+        pass
+    return models
 
 def scan_ai_sessions() -> List[Dict[str, Any]]:
     sessions = []
@@ -181,6 +227,36 @@ def get_session_transcript_logs(conversation_id: str, limit: int = 500) -> Dict[
         "subagent_tree": subagent_tree,
         "steps": steps[-limit:]
     }
+
+def export_session_markdown(conversation_id: str) -> str:
+    data = get_session_transcript_logs(conversation_id, limit=5000)
+    if "error" in data:
+        return f"# Error: {data['error']}"
+        
+    md = f"# 🤖 AI Agent Session Transcript Audit Report\n\n"
+    md += f"- **Session ID**: `{conversation_id}`\n"
+    md += f"- **Total Steps**: {data['total_steps']}\n"
+    md += f"- **Prompts Count**: {len(data['user_prompts'])}\n"
+    md += f"- **Tool Calls Executed**: {len(data['tool_history'])}\n\n"
+    md += f"---\n\n## 📜 Step-by-Step Execution Timeline\n\n"
+    
+    for step in data.get("steps", []):
+        is_user = step["type"] == "USER_INPUT" or step["source"] == "USER_EXPLICIT"
+        has_tools = bool(step.get("tool_calls"))
+        
+        step_title = "USER PROMPT" if is_user else "TOOL EXECUTION" if has_tools else "MODEL ANSWER"
+        md += f"### Step #{step['line_no']} - {step_title}\n\n"
+        
+        if step.get("content"):
+            md += f"```\n{step['content']}\n```\n\n"
+            
+        if has_tools:
+            md += "**Invoked Tools:**\n"
+            for tc in step["tool_calls"]:
+                md += f"- **Tool**: `{tc.get('name')}` - {tc.get('summary', '')}\n"
+            md += "\n"
+            
+    return md
 
 def scan_all_prompts() -> List[Dict[str, Any]]:
     sessions = scan_ai_sessions()

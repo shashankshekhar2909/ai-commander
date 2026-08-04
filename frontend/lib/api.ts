@@ -13,6 +13,20 @@ export interface SystemStats {
   timestamp: number;
 }
 
+export interface StorageDiagnostics {
+  brain_dir: string;
+  total_sessions: number;
+  total_files: number;
+  total_megabytes: number;
+  total_gigabytes: number;
+}
+
+export interface OllamaModel {
+  name: string;
+  size: string;
+  status: string;
+}
+
 export interface HardwareInfo {
   chip_model: string;
   logical_cores: number;
@@ -103,6 +117,18 @@ export async function fetchHardwareStats(): Promise<HardwareInfo> {
   return res.json();
 }
 
+export async function fetchStorageDiagnostics(): Promise<StorageDiagnostics> {
+  const res = await fetch(`${API_BASE}/api/storage`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch storage diagnostics");
+  return res.json();
+}
+
+export async function fetchOllamaModels(): Promise<{ models: OllamaModel[] }> {
+  const res = await fetch(`${API_BASE}/api/ollama/models`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch Ollama models");
+  return res.json();
+}
+
 export async function fetchProcesses(showAll: boolean = false): Promise<{ count: number; high_resource_count: number; processes: AIProcess[] }> {
   const res = await fetch(`${API_BASE}/api/processes?all=${showAll}`, { cache: 'no-store' });
   if (!res.ok) throw new Error("Failed to fetch running processes");
@@ -129,6 +155,10 @@ export async function fetchSessionLogs(sessionId: string, limit: number = 500): 
   const res = await fetch(`${API_BASE}/api/sessions/${sessionId}/logs?limit=${limit}`, { cache: 'no-store' });
   if (!res.ok) throw new Error("Failed to fetch session logs");
   return res.json();
+}
+
+export function getExportReportUrl(sessionId: string): string {
+  return `${API_BASE}/api/sessions/${sessionId}/export`;
 }
 
 export async function searchGlobalLogs(query: string): Promise<{ query: string; count: number; results: any[] }> {

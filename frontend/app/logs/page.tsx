@@ -7,10 +7,10 @@ import {
   Search, 
   Wrench, 
   GitBranch,
-  Layers,
-  Sparkles
+  Sparkles,
+  Download
 } from "lucide-react";
-import { fetchSessions, fetchSessionLogs, searchGlobalLogs, AISession, LogStep } from "@/lib/api";
+import { fetchSessions, fetchSessionLogs, searchGlobalLogs, getExportReportUrl, AISession, LogStep } from "@/lib/api";
 
 function LogsContent() {
   const searchParams = useSearchParams();
@@ -23,7 +23,7 @@ function LogsContent() {
   const [filterType, setFilterType] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   
-  // Global search mode state
+  // Global search state
   const [isGlobalSearchMode, setIsGlobalSearchMode] = useState(false);
   const [globalResults, setGlobalResults] = useState<any[]>([]);
   const [globalSearching, setGlobalSearching] = useState(false);
@@ -87,31 +87,45 @@ function LogsContent() {
             Agent Transcript & Subagent Lineage Explorer
           </h1>
           <p className="text-xs text-slate-400 font-sans mt-0.5">
-            Step-by-step execution transcript log viewer, global log search engine, and subagent lineage tree.
+            Step-by-step execution transcript log viewer, global search engine, subagent lineage tree, and report exporter.
           </p>
         </div>
 
-        {/* Session Selector */}
-        <div className="min-w-[280px]">
-          <label className="text-[10px] text-slate-500 block mb-0.5 uppercase font-bold">SESSION SELECTOR:</label>
-          <select
-            value={selectedSessionId}
-            onChange={(e) => {
-              setSelectedSessionId(e.target.value);
-              setIsGlobalSearchMode(false);
-            }}
-            className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-          >
-            {sessions.map((s) => (
-              <option key={s.conversation_id} value={s.conversation_id}>
-                {s.conversation_id.slice(0, 16)}... ({s.step_count} steps)
-              </option>
-            ))}
-          </select>
+        {/* Session Selector & Export */}
+        <div className="flex items-center gap-2">
+          <div className="min-w-[240px]">
+            <select
+              value={selectedSessionId}
+              onChange={(e) => {
+                setSelectedSessionId(e.target.value);
+                setIsGlobalSearchMode(false);
+              }}
+              className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+            >
+              {sessions.map((s) => (
+                <option key={s.conversation_id} value={s.conversation_id}>
+                  {s.conversation_id.slice(0, 16)}... ({s.step_count} steps)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedSessionId && (
+            <a
+              href={getExportReportUrl(selectedSessionId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              title="Export Session Audit Markdown Report"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              Export Report
+            </a>
+          )}
         </div>
       </div>
 
-      {/* Subagent Lineage Tree (If subagents spawned in this session) */}
+      {/* Subagent Lineage Tree */}
       {subagentTree.length > 0 && !isGlobalSearchMode && (
         <div className="analytics-panel p-3 border-l-4 border-l-purple-500 space-y-2">
           <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5 uppercase">

@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -19,7 +20,10 @@ from log_monitor import (
     get_session_transcript_logs, 
     scan_all_prompts,
     search_all_transcripts,
-    get_token_analytics
+    get_token_analytics,
+    get_storage_diagnostics,
+    get_ollama_models,
+    export_session_markdown
 )
 from prompt_tracker import (
     init_db, 
@@ -35,8 +39,8 @@ from commander_service import (
 
 app = FastAPI(
     title="AI Commander REST API",
-    description="Backend API for tracking AI tasks, prompts, hardware stats, and log streams",
-    version="1.1.0"
+    description="Backend API for tracking AI tasks, prompts, hardware stats, storage, and log streams",
+    version="1.2.0"
 )
 
 app.add_middleware(
@@ -60,10 +64,10 @@ def read_root():
     return {
         "status": "online",
         "app": "AI Commander Backend REST API",
-        "version": "1.1.0"
+        "version": "1.2.0"
     }
 
-# --- Telemetry, Hardware & Process Endpoints ---
+# --- Telemetry, Hardware & Storage Endpoints ---
 
 @app.get("/api/system/stats")
 def get_system_stats():
@@ -72,6 +76,16 @@ def get_system_stats():
 @app.get("/api/hardware")
 def get_hardware():
     return get_hardware_info()
+
+@app.get("/api/storage")
+def get_storage():
+    return get_storage_diagnostics()
+
+@app.get("/api/ollama/models")
+def get_models():
+    return {
+        "models": get_ollama_models()
+    }
 
 @app.get("/api/processes")
 def list_processes(all: bool = Query(False, description="Include all system processes if True")):
@@ -92,10 +106,9 @@ def kill_process(pid: int):
 
 @app.post("/api/watchdog/autokill")
 def watchdog_autokill(threshold: float = Query(85.0, ge=50.0, le=100.0)):
-    """Auto-kill rogue AI processes using > threshold % CPU."""
     return auto_kill_rogue_processes(cpu_threshold=threshold)
 
-# --- Log Search & Analytics Endpoints ---
+# --- Log Search & Report Exporter Endpoints ---
 
 @app.get("/api/sessions")
 def list_sessions():
@@ -111,6 +124,10 @@ def get_session_logs(session_id: str, limit: int = Query(500, ge=1, le=2000)):
     if "error" in data:
         raise HTTPException(status_code=404, detail=data["error"])
     return data
+
+@app.get("/api/sessions/{session_id}/export", response_class=PlainTextResponse)
+def export_session_report(session_id: str):
+    return export_session_markdown(session_id)
 
 @app.get("/api/logs/search")
 def search_logs(q: str = Query(..., description="Query keyword to search across all session transcripts")):
