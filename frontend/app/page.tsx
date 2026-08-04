@@ -113,10 +113,13 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div>
           <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold text-blue-400 bg-blue-950 px-2 py-0.5 rounded border border-blue-800">
+              BUILD WITH SHASHANK
+            </span>
             <h1 className="text-xl font-bold text-slate-100 tracking-tight">
-              System Telemetry & Hardware Watchdog
+              AI Commander Mission Control
             </h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-bold">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 font-bold">
               {stats?.chip_model || "Apple Silicon / Unix"}
             </span>
           </div>

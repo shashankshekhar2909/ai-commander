@@ -3,8 +3,8 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "AI Commander | Laptop AI Tasks & Analytics Dashboard",
-  description: "Telemetry dashboard tracking local AI tasks, prompts history, and agent transcripts.",
+  title: "AI Commander | Build with Shashank",
+  description: "Mission control dashboard by Build with Shashank tracking AI tasks, prompts history, and agent transcripts.",
 };
 
 export default function RootLayout({
@@ -20,8 +20,10 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="border-t border-slate-800/80 py-3 px-6 text-center text-xs text-slate-500 font-mono flex items-center justify-between">
-          <span>AI Commander Telemetry Engine v1.0</span>
-          <span>FastAPI REST API &bull; Next.js Analytics Platform</span>
+          <span>AI Commander Telemetry Engine v1.2 &bull; <strong>Build with Shashank</strong></span>
+          <a href="https://ai.buildwithshashank.com/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">
+            https://ai.buildwithshashank.com/
+          </a>
         </footer>
       </body>
     </html>

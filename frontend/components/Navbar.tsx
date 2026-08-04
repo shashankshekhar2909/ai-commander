@@ -8,7 +8,7 @@ import {
   MessageSquareCode, 
   ScrollText, 
   Terminal,
-  Activity,
+  ExternalLink,
   Server
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -35,7 +35,7 @@ export default function Navbar() {
 
   const navItems = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "Processes & Tasks", href: "/tasks", icon: Cpu },
+    { name: "Processes & Watchdog", href: "/tasks", icon: Cpu },
     { name: "Prompts Vault", href: "/prompts", icon: MessageSquareCode },
     { name: "Agent Transcripts", href: "/logs", icon: ScrollText },
     { name: "Commander Console", href: "/commander", icon: Terminal },
@@ -47,15 +47,16 @@ export default function Navbar() {
         {/* Brand / Logo */}
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white font-mono font-bold text-xs">
-              AI
+            <div className="w-7 h-7 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-mono font-bold text-xs shadow-sm">
+              BS
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-slate-100 tracking-tight">
-                AI COMMANDER
+              <span className="font-extrabold text-sm text-slate-100 tracking-tight font-sans">
+                BUILD WITH SHASHANK
               </span>
-              <span className="text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700 px-1.5 py-0.5 rounded uppercase">
-                Analytics
+              <span className="text-slate-500 font-mono text-xs">/</span>
+              <span className="font-semibold text-xs text-blue-400 font-mono uppercase tracking-wider">
+                AI Commander
               </span>
             </div>
           </Link>
@@ -71,7 +72,7 @@ export default function Navbar() {
                   href={item.href}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     isActive
-                      ? "bg-slate-800 text-blue-400 border border-slate-700"
+                      ? "bg-slate-800 text-blue-400 border border-slate-700 font-bold"
                       : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                   }`}
                 >
@@ -83,14 +84,24 @@ export default function Navbar() {
           </nav>
         </div>
 
-        {/* System Telemetry Indicator */}
+        {/* System Telemetry & External Site Link */}
         <div className="flex items-center gap-4">
+          <a
+            href="https://ai.buildwithshashank.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-mono text-slate-400 hover:text-blue-400 flex items-center gap-1 transition-colors bg-slate-900 border border-slate-800 px-2.5 py-1 rounded"
+          >
+            <span>ai.buildwithshashank.com</span>
+            <ExternalLink className="w-3 h-3 text-slate-500" />
+          </a>
+
           <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
             <Server className="w-3.5 h-3.5 text-slate-500" />
             <span>localhost:8000</span>
             <span className="text-slate-600">|</span>
             <span className={`w-2 h-2 rounded-full ${wsConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}></span>
-            <span className={wsConnected ? "text-emerald-400" : "text-amber-400"}>
+            <span className={wsConnected ? "text-emerald-400 font-bold" : "text-amber-400"}>
               {wsConnected ? "LIVE" : "POLLING"}
             </span>
           </div>
