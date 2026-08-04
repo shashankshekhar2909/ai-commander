@@ -13,12 +13,12 @@ import {
   XCircle,
   Copy,
   Check,
-  ChevronRight,
   ShieldAlert,
   Clock,
-  Layers,
   ArrowUpRight,
-  Server
+  Zap,
+  Coins,
+  ShieldCheck
 } from "lucide-react";
 import { 
   fetchSystemStats, 
@@ -26,17 +26,22 @@ import {
   fetchSessions, 
   fetchPrompts, 
   killProcess,
+  triggerAutoKillWatchdog,
+  fetchTokenAnalytics,
   SystemStats, 
   AIProcess, 
   AISession, 
-  PromptItem 
+  PromptItem,
+  TokenAnalytics
 } from "@/lib/api";
 
 export default function Dashboard() {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [processes, setProcesses] = useState<AIProcess[]>([]);
+  const [highResourceCount, setHighResourceCount] = useState(0);
   const [sessions, setSessions] = useState<AISession[]>([]);
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
+  const [tokenStats, setTokenStats] = useState<TokenAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -44,17 +49,20 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [sysStats, procData, sessionData, promptData] = await Promise.all([
+      const [sysStats, procData, sessionData, promptData, tokData] = await Promise.all([
         fetchSystemStats().catch(() => null),
-        fetchProcesses().catch(() => ({ count: 0, processes: [] })),
+        fetchProcesses().catch(() => ({ count: 0, high_resource_count: 0, processes: [] })),
         fetchSessions().catch(() => ({ count: 0, sessions: [] })),
-        fetchPrompts("", "", false).catch(() => ({ count: 0, prompts: [] }))
+        fetchPrompts("", "", false).catch(() => ({ count: 0, prompts: [] })),
+        fetchTokenAnalytics().catch(() => null)
       ]);
 
       if (sysStats) setStats(sysStats);
       setProcesses(procData.processes || []);
+      setHighResourceCount(procData.high_resource_count || 0);
       setSessions(sessionData.sessions || []);
       setPrompts(promptData.prompts || []);
+      if (tokData) setTokenStats(tokData);
       setError(null);
     } catch (e: any) {
       setError("Unable to connect to Python REST API (localhost:8000). Verify backend process.");
@@ -81,6 +89,18 @@ export default function Dashboard() {
     }
   };
 
+  const handleAutoKillWatchdog = async () => {
+    if (!confirm("Run Watchdog Auto-Kill on all AI processes exceeding 85% CPU?")) return;
+    try {
+      const res = await triggerAutoKillWatchdog(85.0);
+      setActionMsg(res.message);
+      loadDashboardData();
+      setTimeout(() => setActionMsg(null), 4000);
+    } catch (err: any) {
+      alert("Watchdog action failed: " + err.message);
+    }
+  };
+
   const copyToClipboard = (text: string, id: number) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -88,19 +108,35 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 font-sans">
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-100 tracking-tight flex items-center gap-2">
-            System Telemetry Dashboard
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-100 tracking-tight">
+              System Telemetry & Hardware Watchdog
+            </h1>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-bold">
+              {stats?.chip_model || "Apple Silicon / Unix"}
+            </span>
+          </div>
           <p className="text-xs text-slate-400 font-mono mt-0.5">
-            Real-time telemetry monitoring running AI processes, agent prompt activity, and session transcripts.
+            Real-time telemetry monitoring running AI tasks, token analytics, rogue process watchdog, and session transcripts.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          {highResourceCount > 0 && (
+            <button
+              onClick={handleAutoKillWatchdog}
+              className="px-3 py-1.5 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-mono flex items-center gap-1.5 transition-colors animate-pulse"
+              title="Auto-Kill High CPU Rogue AI Processes"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              Watchdog: Auto-Kill ({highResourceCount} High CPU)
+            </button>
+          )}
+
           <button
             onClick={loadDashboardData}
             className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-mono flex items-center gap-1.5 transition-colors"
@@ -108,6 +144,7 @@ export default function Dashboard() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-blue-400" : ""}`} />
             Refresh Data
           </button>
+
           <Link 
             href="/commander"
             className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs font-mono flex items-center gap-1.5 transition-colors"
@@ -173,25 +210,6 @@ export default function Dashboard() {
 
         <div className="analytics-card p-3.5 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-            <span>DISK FREE</span>
-            <HardDrive className="w-3.5 h-3.5 text-teal-400" />
-          </div>
-          <div className="text-xl font-bold font-mono text-slate-100">
-            {stats ? `${stats.disk_free_gb} GB` : "--"}
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded overflow-hidden">
-            <div 
-              className="bg-teal-500 h-full transition-all duration-300"
-              style={{ width: `${stats ? stats.disk_percent : 0}%` }}
-            ></div>
-          </div>
-          <span className="text-[10px] font-mono text-slate-500 block">
-            {stats ? `${stats.disk_percent}% Used` : "Loading..."}
-          </span>
-        </div>
-
-        <div className="analytics-card p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
             <span>AI PROCESSES</span>
             <Cpu className="w-3.5 h-3.5 text-amber-400" />
           </div>
@@ -201,26 +219,44 @@ export default function Dashboard() {
           <div className="w-full bg-slate-800 h-1.5 rounded overflow-hidden">
             <div className="bg-amber-500 h-full w-full"></div>
           </div>
-          <span className="text-[10px] font-mono text-slate-500 block">Active Tasks</span>
+          <span className="text-[10px] font-mono text-slate-500 block">
+            {highResourceCount > 0 ? `${highResourceCount} High Load` : "Normal Load"}
+          </span>
         </div>
 
         <div className="analytics-card p-3.5 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-            <span>RECORDED PROMPTS</span>
-            <MessageSquareCode className="w-3.5 h-3.5 text-purple-400" />
+            <span>TOTAL TOKENS</span>
+            <Zap className="w-3.5 h-3.5 text-purple-400" />
           </div>
           <div className="text-xl font-bold font-mono text-purple-400">
-            {prompts.length}
+            {tokenStats ? tokenStats.total_tokens.toLocaleString() : "--"}
           </div>
           <div className="w-full bg-slate-800 h-1.5 rounded overflow-hidden">
             <div className="bg-purple-500 h-full w-full"></div>
           </div>
-          <span className="text-[10px] font-mono text-slate-500 block">Vault Total</span>
+          <span className="text-[10px] font-mono text-slate-500 block">
+            {tokenStats ? `${tokenStats.total_input_tokens} In / ${tokenStats.total_output_tokens} Out` : "Estimating..."}
+          </span>
         </div>
 
         <div className="analytics-card p-3.5 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-            <span>AGENT SESSIONS</span>
+            <span>LOCAL COST SAVINGS</span>
+            <Coins className="w-3.5 h-3.5 text-teal-400" />
+          </div>
+          <div className="text-xl font-bold font-mono text-teal-400">
+            {tokenStats ? `$${tokenStats.local_llm_cost_savings_dollars}` : "--"}
+          </div>
+          <div className="w-full bg-slate-800 h-1.5 rounded overflow-hidden">
+            <div className="bg-teal-500 h-full w-full"></div>
+          </div>
+          <span className="text-[10px] font-mono text-slate-500 block">Vs API Rates</span>
+        </div>
+
+        <div className="analytics-card p-3.5 space-y-2">
+          <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+            <span>DISCOVERED SESSIONS</span>
             <ScrollText className="w-3.5 h-3.5 text-indigo-400" />
           </div>
           <div className="text-xl font-bold font-mono text-indigo-400">
@@ -229,7 +265,7 @@ export default function Dashboard() {
           <div className="w-full bg-slate-800 h-1.5 rounded overflow-hidden">
             <div className="bg-indigo-500 h-full w-full"></div>
           </div>
-          <span className="text-[10px] font-mono text-slate-500 block">Discovered Logs</span>
+          <span className="text-[10px] font-mono text-slate-500 block">Indexed Transcripts</span>
         </div>
       </div>
 
@@ -241,7 +277,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-blue-500"></span>
               <h2 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
-                Live AI Task & Process Telemetry
+                Live AI Task Telemetry
               </h2>
             </div>
             <Link href="/tasks" className="text-xs font-mono text-blue-400 hover:underline flex items-center gap-1">
@@ -273,8 +309,11 @@ export default function Dashboard() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
                     {processes.slice(0, 7).map((proc) => (
-                      <tr key={proc.pid} className="hover:bg-slate-800/50 transition-colors">
-                        <td className="py-2.5 px-3 font-bold text-slate-300">{proc.pid}</td>
+                      <tr key={proc.pid} className={`hover:bg-slate-800/50 transition-colors ${proc.is_high_resource ? "bg-rose-950/20" : ""}`}>
+                        <td className="py-2.5 px-3 font-bold text-slate-300">
+                          {proc.pid}
+                          {proc.is_high_resource && <span className="ml-1 text-rose-400 font-normal text-[9px] border border-rose-800 px-1 rounded">HIGH</span>}
+                        </td>
                         <td className="py-2.5 px-3">
                           <div className="font-semibold text-slate-200 text-xs font-sans">{proc.name}</div>
                           <div className="text-[10px] text-slate-500 truncate max-w-xs">{proc.cmdline || "No args"}</div>
@@ -284,7 +323,7 @@ export default function Dashboard() {
                             {proc.category}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-right font-bold text-blue-400">
+                        <td className={`py-2.5 px-3 text-right font-bold ${proc.cpu_percent > 80 ? "text-rose-400 animate-pulse" : "text-blue-400"}`}>
                           {proc.cpu_percent}%
                         </td>
                         <td className="py-2.5 px-3 text-right text-emerald-400">
@@ -308,24 +347,24 @@ export default function Dashboard() {
         </div>
 
         {/* Right Column (1/3): Prompt Feed & Session Metrics */}
-        <div className="space-y-4">
+        <div className="space-y-4 font-mono">
           {/* Prompts Activity Stream */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                <h2 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
+                <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
                   Prompts Stream
                 </h2>
               </div>
-              <Link href="/prompts" className="text-xs font-mono text-purple-400 hover:underline flex items-center gap-1">
+              <Link href="/prompts" className="text-xs text-purple-400 hover:underline flex items-center gap-1">
                 Vault <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
 
             <div className="analytics-panel p-3 space-y-2.5">
               {prompts.slice(0, 4).map((p) => (
-                <div key={p.id} className="p-2.5 rounded bg-[#070a11] border border-slate-800 text-xs space-y-1.5 font-mono">
+                <div key={p.id} className="p-2.5 rounded bg-[#070a11] border border-slate-800 text-xs space-y-1.5">
                   <div className="flex items-center justify-between text-[10px] text-slate-500">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3 text-slate-600" />
@@ -345,7 +384,7 @@ export default function Dashboard() {
                 </div>
               ))}
               {prompts.length === 0 && (
-                <div className="text-center py-6 text-slate-500 text-xs font-mono">
+                <div className="text-center py-6 text-slate-500 text-xs">
                   No prompts recorded yet.
                 </div>
               )}
@@ -357,11 +396,11 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <h2 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider">
+                <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
                   Discovered Agent Logs
                 </h2>
               </div>
-              <Link href="/logs" className="text-xs font-mono text-emerald-400 hover:underline flex items-center gap-1">
+              <Link href="/logs" className="text-xs text-emerald-400 hover:underline flex items-center gap-1">
                 Transcripts <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
@@ -371,7 +410,7 @@ export default function Dashboard() {
                 <Link 
                   key={sess.conversation_id}
                   href={`/logs?session=${sess.conversation_id}`}
-                  className="block p-2.5 rounded bg-[#070a11] border border-slate-800 hover:border-slate-700 text-xs font-mono space-y-1 transition-colors"
+                  className="block p-2.5 rounded bg-[#070a11] border border-slate-800 hover:border-slate-700 text-xs space-y-1 transition-colors"
                 >
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-blue-400 font-bold truncate max-w-[140px]">

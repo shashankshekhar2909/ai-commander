@@ -8,7 +8,17 @@ export interface SystemStats {
   memory_total_gb: number;
   disk_percent: number;
   disk_free_gb: number;
+  chip_model?: string;
+  architecture?: string;
   timestamp: number;
+}
+
+export interface HardwareInfo {
+  chip_model: string;
+  logical_cores: number;
+  physical_cores: number;
+  total_memory_gb: number;
+  architecture: string;
 }
 
 export interface AIProcess {
@@ -23,6 +33,7 @@ export interface AIProcess {
   user: string;
   category: string;
   is_ai: boolean;
+  is_high_resource?: boolean;
 }
 
 export interface AISession {
@@ -33,6 +44,10 @@ export interface AISession {
   step_count: number;
   tool_calls_count: number;
   subagents_count: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+  estimated_api_cost?: number;
   last_updated: number;
   status: string;
 }
@@ -63,7 +78,17 @@ export interface SessionLogsResponse {
   total_steps: number;
   user_prompts: { line_no: number; prompt: string }[];
   tool_history: { line_no: number; name: string; summary: string; args: any }[];
+  subagent_tree?: { line_no: number; role: string; type_name: string; prompt: string; model: string }[];
   steps: LogStep[];
+}
+
+export interface TokenAnalytics {
+  total_sessions: number;
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  estimated_api_cost_dollars: number;
+  local_llm_cost_savings_dollars: number;
 }
 
 export async function fetchSystemStats(): Promise<SystemStats> {
@@ -72,7 +97,13 @@ export async function fetchSystemStats(): Promise<SystemStats> {
   return res.json();
 }
 
-export async function fetchProcesses(showAll: boolean = false): Promise<{ count: number; processes: AIProcess[] }> {
+export async function fetchHardwareStats(): Promise<HardwareInfo> {
+  const res = await fetch(`${API_BASE}/api/hardware`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch hardware info");
+  return res.json();
+}
+
+export async function fetchProcesses(showAll: boolean = false): Promise<{ count: number; high_resource_count: number; processes: AIProcess[] }> {
   const res = await fetch(`${API_BASE}/api/processes?all=${showAll}`, { cache: 'no-store' });
   if (!res.ok) throw new Error("Failed to fetch running processes");
   return res.json();
@@ -83,15 +114,32 @@ export async function killProcess(pid: number): Promise<{ success: boolean; mess
   return res.json();
 }
 
+export async function triggerAutoKillWatchdog(threshold: number = 85.0): Promise<{ success: boolean; count: number; message: string }> {
+  const res = await fetch(`${API_BASE}/api/watchdog/autokill?threshold=${threshold}`, { method: "POST" });
+  return res.json();
+}
+
 export async function fetchSessions(): Promise<{ count: number; sessions: AISession[] }> {
   const res = await fetch(`${API_BASE}/api/sessions`, { cache: 'no-store' });
   if (!res.ok) throw new Error("Failed to fetch AI sessions");
   return res.json();
 }
 
-export async function fetchSessionLogs(sessionId: string, limit: number = 200): Promise<SessionLogsResponse> {
+export async function fetchSessionLogs(sessionId: string, limit: number = 500): Promise<SessionLogsResponse> {
   const res = await fetch(`${API_BASE}/api/sessions/${sessionId}/logs?limit=${limit}`, { cache: 'no-store' });
   if (!res.ok) throw new Error("Failed to fetch session logs");
+  return res.json();
+}
+
+export async function searchGlobalLogs(query: string): Promise<{ query: string; count: number; results: any[] }> {
+  const res = await fetch(`${API_BASE}/api/logs/search?q=${encodeURIComponent(query)}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to search global logs");
+  return res.json();
+}
+
+export async function fetchTokenAnalytics(): Promise<TokenAnalytics> {
+  const res = await fetch(`${API_BASE}/api/analytics/tokens`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch token analytics");
   return res.json();
 }
 

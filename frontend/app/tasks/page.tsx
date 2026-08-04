@@ -9,14 +9,14 @@ import {
   CheckCircle2, 
   Info,
   Terminal,
-  Activity,
-  Layers,
-  Filter
+  ShieldAlert,
+  ShieldCheck
 } from "lucide-react";
-import { fetchProcesses, killProcess, AIProcess } from "@/lib/api";
+import { fetchProcesses, killProcess, triggerAutoKillWatchdog, AIProcess } from "@/lib/api";
 
 export default function TasksPage() {
   const [processes, setProcesses] = useState<AIProcess[]>([]);
+  const [highResourceCount, setHighResourceCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState("");
@@ -29,6 +29,7 @@ export default function TasksPage() {
     try {
       const data = await fetchProcesses(showAll);
       setProcesses(data.processes || []);
+      setHighResourceCount(data.high_resource_count || 0);
     } catch (e: any) {
       setMsg({ text: "Error loading process telemetry", type: "error" });
     } finally {
@@ -53,6 +54,18 @@ export default function TasksPage() {
     }
   };
 
+  const handleAutoKillWatchdog = async () => {
+    if (!confirm("Run Watchdog Auto-Kill on all AI processes exceeding 85% CPU?")) return;
+    try {
+      const res = await triggerAutoKillWatchdog(85.0);
+      setMsg({ text: res.message, type: "success" });
+      loadProcesses();
+      setTimeout(() => setMsg(null), 4000);
+    } catch (err: any) {
+      setMsg({ text: "Watchdog auto-kill failed: " + err.message, type: "error" });
+    }
+  };
+
   const categories = ["All", "AGY / Antigravity Agent", "Local LLM Server", "AI IDE / Extension", "Python Script / App", "Node.js Process"];
 
   const filteredProcesses = processes.filter((proc) => {
@@ -64,23 +77,34 @@ export default function TasksPage() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-mono">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div>
-          <h1 className="text-lg font-bold text-slate-100 font-mono uppercase tracking-wide flex items-center gap-2">
+          <h1 className="text-lg font-bold text-slate-100 uppercase tracking-wide flex items-center gap-2">
             <Cpu className="w-4 h-4 text-blue-400" />
-            AI Task & Process Manager
+            AI Task & Process Watchdog
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
+          <p className="text-xs text-slate-400 font-sans mt-0.5">
             System task inventory tracking CPU%, RAM (MB), PIDs, and process command lines.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {highResourceCount > 0 && (
+            <button
+              onClick={handleAutoKillWatchdog}
+              className="px-3 py-1 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs flex items-center gap-1 transition-colors animate-pulse"
+              title="Auto-Kill High CPU Rogue AI Processes"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              Auto-Kill ({highResourceCount} High CPU)
+            </button>
+          )}
+
           <button
             onClick={() => setShowAll(!showAll)}
-            className={`px-3 py-1 rounded text-xs font-mono border transition-colors ${
+            className={`px-3 py-1 rounded text-xs border transition-colors ${
               showAll
                 ? "bg-purple-950/60 text-purple-300 border-purple-800"
                 : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
@@ -101,7 +125,7 @@ export default function TasksPage() {
       </div>
 
       {msg && (
-        <div className={`p-3 rounded text-xs font-mono flex items-center gap-2 border ${
+        <div className={`p-3 rounded text-xs flex items-center gap-2 border ${
           msg.type === "success" 
             ? "bg-emerald-950/40 border-emerald-800 text-emerald-300" 
             : "bg-rose-950/40 border-rose-800 text-rose-300"
@@ -120,7 +144,7 @@ export default function TasksPage() {
             placeholder="Search by PID, name, or command line arguments..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded px-3 pl-9 py-1.5 text-xs text-slate-200 placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
+            className="w-full bg-slate-900 border border-slate-800 rounded px-3 pl-9 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -129,7 +153,7 @@ export default function TasksPage() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-2.5 py-1 rounded text-xs font-mono whitespace-nowrap transition-colors ${
+              className={`px-2.5 py-1 rounded text-xs whitespace-nowrap transition-colors ${
                 selectedCategory === cat
                   ? "bg-blue-600 text-white font-semibold"
                   : "bg-slate-900 text-slate-400 border border-slate-800 hover:bg-slate-800"
@@ -167,8 +191,11 @@ export default function TasksPage() {
               </thead>
               <tbody className="divide-y divide-slate-800/80">
                 {filteredProcesses.map((proc) => (
-                  <tr key={proc.pid} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="py-2 px-3 font-bold text-slate-300">{proc.pid}</td>
+                  <tr key={proc.pid} className={`hover:bg-slate-800/50 transition-colors ${proc.is_high_resource ? "bg-rose-950/20" : ""}`}>
+                    <td className="py-2 px-3 font-bold text-slate-300">
+                      {proc.pid}
+                      {proc.is_high_resource && <span className="ml-1 text-rose-400 font-normal text-[9px] border border-rose-800 px-1 rounded">HIGH</span>}
+                    </td>
                     <td className="py-2 px-3 font-semibold text-slate-200">{proc.name}</td>
                     <td className="py-2 px-3">
                       <span className="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-blue-300 border border-slate-800">
@@ -178,7 +205,7 @@ export default function TasksPage() {
                     <td className="py-2 px-3 max-w-sm truncate text-slate-400 text-[11px]">
                       {proc.cmdline || "N/A"}
                     </td>
-                    <td className="py-2 px-3 text-right font-bold text-blue-400">
+                    <td className={`py-2 px-3 text-right font-bold ${proc.cpu_percent > 80 ? "text-rose-400 animate-pulse" : "text-blue-400"}`}>
                       {proc.cpu_percent}%
                     </td>
                     <td className="py-2 px-3 text-right text-emerald-400">

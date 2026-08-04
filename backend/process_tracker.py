@@ -1,6 +1,7 @@
 import psutil
 import time
 import os
+import subprocess
 from typing import List, Dict, Any
 
 AI_KEYWORDS = [
@@ -18,6 +19,27 @@ AI_CATEGORIES = {
     "Python AI Framework": ["torch", "transformers", "langchain", "crewai", "autogen", "whisper"],
 }
 
+def get_hardware_info() -> Dict[str, Any]:
+    chip_model = "Mac / Unix Host"
+    try:
+        res = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0 and res.stdout.strip():
+            chip_model = res.stdout.strip()
+        else:
+            res2 = subprocess.run(["sysctl", "-n", "hw.model"], capture_output=True, text=True, timeout=2)
+            if res2.returncode == 0 and res2.stdout.strip():
+                chip_model = res2.stdout.strip()
+    except Exception:
+        pass
+
+    return {
+        "chip_model": chip_model,
+        "logical_cores": psutil.cpu_count(logical=True),
+        "physical_cores": psutil.cpu_count(logical=False) or psutil.cpu_count(logical=True),
+        "total_memory_gb": round(psutil.virtual_memory().total / (1024**3), 2),
+        "architecture": "Apple Silicon (ARM64)" if "Apple" in chip_model or os.uname().machine == "arm64" else os.uname().machine
+    }
+
 def categorize_process(cmdline_str: str, name: str) -> str:
     combined = (cmdline_str + " " + name).lower()
     for cat, keywords in AI_CATEGORIES.items():
@@ -34,11 +56,9 @@ def is_ai_process(proc_info: Dict[str, Any]) -> bool:
     name = (proc_info.get("name") or "").lower()
     combined = name + " " + cmdline
     
-    # Exclude system daemons or unrelated standard apps if needed
     if any(kw in combined for kw in ["agy", "antigravity", "gemini", "ollama", "claude", "cursor", "copilot", "vllm", "lmstudio", "llama", "subagent", "crewai", "langchain"]):
         return True
     
-    # Check general python/node scripts in workspace or running AI packages
     if "python" in name or "python" in cmdline:
         if any(kw in cmdline for kw in ["main.py", "agent", "llm", "ai", "model", "train", "infer", "gpt", "rag", "torch", "backend"]):
             return True
@@ -62,28 +82,45 @@ def get_running_ai_processes(all_processes: bool = False) -> List[Dict[str, Any]
                 
             mem_mb = round((info.get('memory_info').rss if info.get('memory_info') else 0) / (1024 * 1024), 2)
             uptime_sec = round(time.time() - info.get('create_time', time.time()), 1)
+            cpu_pct = proc.cpu_percent(interval=None)
             
             cat = categorize_process(cmdline_str, info.get('name', ''))
+            is_high_resource = cpu_pct > 80.0 or mem_mb > 1500.0
             
             processes.append({
                 "pid": info['pid'],
                 "name": info['name'],
                 "cmdline": cmdline_str,
-                "cpu_percent": proc.cpu_percent(interval=None),
+                "cpu_percent": cpu_pct,
                 "memory_percent": round(info.get('memory_percent') or 0.0, 2),
                 "memory_mb": mem_mb,
                 "status": info.get('status', 'running'),
                 "uptime_seconds": uptime_sec,
                 "user": info.get('username', 'unknown'),
                 "category": cat,
-                "is_ai": is_ai_process(info)
+                "is_ai": is_ai_process(info),
+                "is_high_resource": is_high_resource
             })
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
             
-    # Sort by CPU% descending, then Memory MB descending
     processes.sort(key=lambda x: (x['cpu_percent'], x['memory_mb']), reverse=True)
     return processes
+
+def auto_kill_rogue_processes(cpu_threshold: float = 85.0) -> Dict[str, Any]:
+    procs = get_running_ai_processes(all_processes=False)
+    killed = []
+    for p in procs:
+        if p["cpu_percent"] >= cpu_threshold and p["pid"] != os.getpid():
+            res = kill_ai_process(p["pid"])
+            if res["success"]:
+                killed.append({"pid": p["pid"], "name": p["name"], "cpu": p["cpu_percent"]})
+    return {
+        "success": True,
+        "count": len(killed),
+        "killed_processes": killed,
+        "message": f"Terminated {len(killed)} rogue AI processes running above {cpu_threshold}% CPU."
+    }
 
 def kill_ai_process(pid: int) -> Dict[str, Any]:
     try:
@@ -105,6 +142,7 @@ def get_system_telemetry() -> Dict[str, Any]:
     cpu_count = psutil.cpu_count(logical=True)
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
+    hw = get_hardware_info()
     
     return {
         "cpu_percent": cpu_pct,
@@ -114,5 +152,7 @@ def get_system_telemetry() -> Dict[str, Any]:
         "memory_total_gb": round(mem.total / (1024**3), 2),
         "disk_percent": disk.percent,
         "disk_free_gb": round(disk.free / (1024**3), 2),
+        "chip_model": hw["chip_model"],
+        "architecture": hw["architecture"],
         "timestamp": time.time()
     }
