@@ -5,6 +5,11 @@ import Navbar from "@/components/Navbar";
 export const metadata: Metadata = {
   title: "AI Commander | Build with Shashank",
   description: "Mission control dashboard by Build with Shashank tracking AI tasks, prompts history, and agent transcripts.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/favicon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
