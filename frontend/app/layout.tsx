@@ -21,8 +21,8 @@ export default function RootLayout({
         </main>
         <footer className="border-t border-slate-800/80 py-3 px-6 text-center text-xs text-slate-500 font-mono flex items-center justify-between">
           <span>AI Commander Telemetry Engine v1.2 &bull; <strong>Build with Shashank</strong></span>
-          <a href="https://ai.buildwithshashank.com/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">
-            https://ai.buildwithshashank.com/
+          <a href="https://www.buildwithshashank.com/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">
+            https://www.buildwithshashank.com/
           </a>
         </footer>
       </body>

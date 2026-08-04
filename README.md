@@ -2,11 +2,11 @@
 
 # ⚡ AI COMMANDER
 
-### **Build with Shashank** &bull; [ai.buildwithshashank.com](https://ai.buildwithshashank.com/)
+### **Build with Shashank** &bull; [www.buildwithshashank.com](https://www.buildwithshashank.com/)
 
 **Real-time Mission Control & Telemetry Dashboard for Local AI Agents, Tasks & Prompts**
 
-[![Build with Shashank](https://img.shields.io/badge/Build_with_Shashank-ai.buildwithshashank.com-blue?style=for-the-badge&logo=googlechrome)](https://ai.buildwithshashank.com/)
+[![Build with Shashank](https://img.shields.io/badge/Build_with_Shashank-www.buildwithshashank.com-blue?style=for-the-badge&logo=googlechrome)](https://www.buildwithshashank.com/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js_16-000000.svg?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB.svg?style=for-the-badge&logo=python)](https://python.org)
@@ -17,7 +17,7 @@
 
 ## 📖 Overview
 
-**AI Commander** (by [Build with Shashank](https://ai.buildwithshashank.com/)) is a unified telemetry mission control system built to monitor, audit, and manage all AI agent workflows, background execution tasks, prompt histories, and system resource consumption on your laptop.
+**AI Commander** (by [Build with Shashank](https://www.buildwithshashank.com/)) is a unified telemetry mission control system built to monitor, audit, and manage all AI agent workflows, background execution tasks, prompt histories, and system resource consumption on your laptop.
 
 It combines a **Python REST API + WebSockets backend** with a **Next.js 16 analytics dashboard**, providing real-time process scanning, transcript log indexing, and prompt tracking.
 
@@ -66,7 +66,7 @@ Run the startup script from the root directory:
 | **Next.js Analytics UI** | [http://localhost:3000](http://localhost:3000) | Main Telemetry Dashboard |
 | **FastAPI REST API Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive OpenAPI Documentation |
 | **WebSocket Telemetry** | `ws://localhost:8000/ws/live` | Real-time metric stream |
-| **Official Site** | [ai.buildwithshashank.com](https://ai.buildwithshashank.com/) | Build with Shashank Platform |
+| **Official Site** | [www.buildwithshashank.com](https://www.buildwithshashank.com/) | Build with Shashank Platform |
 
 ---
 
@@ -94,6 +94,6 @@ Run the startup script from the root directory:
 
 <div align="center">
 
-**AI Commander** &bull; [Build with Shashank](https://ai.buildwithshashank.com/)
+**AI Commander** &bull; [Build with Shashank](https://www.buildwithshashank.com/)
 
 </div>
