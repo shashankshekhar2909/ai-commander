@@ -6,9 +6,12 @@ export const metadata: Metadata = {
   title: "AI Commander | Build with Shashank",
   description: "Mission control dashboard by Build with Shashank tracking AI tasks, prompts history, and agent transcripts.",
   icons: {
-    icon: "/icon.png",
-    shortcut: "/favicon.png",
-    apple: "/icon.png",
+    icon: [
+      { url: "/favicon.ico?v=2", sizes: "any" },
+      { url: "/icon.png?v=2", type: "image/png" }
+    ],
+    shortcut: "/favicon.ico?v=2",
+    apple: "/icon.png?v=2",
   },
 };
 
